@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILLeadPro - Illinois Real Estate Lead Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --bg:#0a0a0f;--surface:#13131a;--surface2:#1c1c26;--border:#2a2a3a;
+    --accent:#00e5a0;--accent2:#7b6fff;--hot:#ff4d6d;--warm:#ffb347;
+    --cold:#4dc3ff;--text:#e8e8f0;--muted:#6b6b8a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;}
+  .logo span{color:var(--accent);}
+  .header-badge{background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;}
+  .nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid var(--border);background:var(--surface);}
+  .nav-tab{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;border-radius:6px 6px 0 0;}
+  .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,229,160,.05);}
+  .nav-tab:hover:not(.active){color:var(--text);}
+  .main{padding:24px;max-width:1400px;margin:0 auto;}
+  .stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .stat-card.s-total::before{background:var(--cold);}
+  .stat-card.s-hot::before{background:var(--hot);}
+  .stat-card.s-fwd::before{background:var(--accent2);}
+  .stat-card.s-closed::before{background:var(--accent);}
+  .stat-card.s-money::before{background:var(--accent);}
+  .stat-card.s-pending::before{background:var(--warm);}
+  .stat-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;}
+  .stat-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;}
+  .s-total .stat-value{color:var(--cold);}
+  .s-hot .stat-value{color:var(--hot);}
+  .s-fwd .stat-value{color:var(--accent2);}
+  .s-closed .stat-value{color:var(--accent);}
+  .s-money .stat-value{color:var(--accent);}
+  .s-pending .stat-value{color:var(--warm);}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;}
+  .toolbar-left{display:flex;gap:8px;align-items:center;}
+  .filter-btn{font-size:12px;font-weight:500;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .2s;}
+  .filter-btn.active,.filter-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.08);}
+  .filter-btn.fhot.active{border-color:var(--hot);color:var(--hot);background:rgba(255,77,109,.08);}
+  .filter-btn.fwarm.active{border-color:var(--warm);color:var(--warm);background:rgba(255,179,71,.08);}
+  .filter-btn.fcold.active{border-color:var(--cold);color:var(--cold);background:rgba(77,195,255,.08);}
+  .add-btn{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);cursor:pointer;transition:all .2s;}
+  .add-btn:hover{opacity:.9;transform:translateY(-1px);}
+  .leads-table{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .table-header{display:grid;grid-template-columns:50px 170px 130px 90px 90px 95px 120px 140px 100px 100px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+  .lead-row{display:grid;grid-template-columns:50px 170px 130px 90px 90px 95px 120px 140px 100px 100px;padding:13px 16px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;cursor:pointer;}
+  .lead-row:last-child{border-bottom:none;}
+  .lead-row:hover{background:var(--surface2);}
+  .lead-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  .lead-name{font-size:13px;font-weight:500;}
+  .lead-contact{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  .badge{font-size:10px;font-weight:500;padding:3px 8px;border-radius:4px;display:inline-block;}
+  .src-craigslist{background:rgba(255,77,109,.15);color:#ff4d6d;}
+  .src-reddit{background:rgba(255,179,71,.15);color:#ffb347;}
+  .src-zillow{background:rgba(0,229,160,.15);color:#00e5a0;}
+  .src-twitter{background:rgba(77,195,255,.15);color:#4dc3ff;}
+  .src-facebook{background:rgba(123,111,255,.15);color:#7b6fff;}
+  .src-other{background:rgba(107,107,138,.15);color:#6b6b8a;}
+  .score-hot{color:var(--hot);font-weight:600;}
+  .score-warm{color:var(--warm);font-weight:600;}
+  .score-cold{color:var(--cold);font-weight:600;}
+  .type-seller{background:rgba(255,77,109,.15);color:#ff4d6d;}
+  .type-buyer{background:rgba(0,229,160,.15);color:#00e5a0;}
+  .type-investor{background:rgba(123,111,255,.15);color:#7b6fff;}
+  .st-new{background:rgba(107,107,138,.15);color:#6b6b8a;}
+  .st-progress{background:rgba(123,111,255,.15);color:#7b6fff;}
+  .st-closed{background:rgba(0,229,160,.15);color:#00e5a0;}
+  .st-lost{background:rgba(255,77,109,.15);color:#ff4d6d;}
+  .forward-btn{font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;}
+  .forward-btn.fwded{border-color:var(--accent2);color:var(--accent2);background:rgba(123,111,255,.1);}
+  .forward-btn:hover:not(.fwded){border-color:var(--accent);color:var(--accent);}
+  .fee-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);font-weight:500;}
+  .no-rows{padding:40px;text-align:center;color:var(--muted);font-size:13px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:700px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,.6);}
+  .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:10;}
+  .modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+  .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+  .modal-close:hover{color:var(--text);border-color:var(--text);}
+  .modal-body{padding:24px;}
+  .sec-title{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
+  .form-group.full{grid-column:1/-1;}
+  .form-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .form-input,.form-select,.form-textarea{font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;transition:border-color .2s;width:100%;}
+  .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+  .form-select option{background:var(--surface2);}
+  .form-textarea{resize:vertical;min-height:80px;}
+  .calc-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;}
+  .calc-title{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+  .calc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;}
+  .calc-row.total{border-top:1px solid var(--border);margin-top:6px;padding-top:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;}
+  .calc-val{font-family:'DM Mono',monospace;color:var(--accent);}
+  .calc-row.total .calc-val{font-size:20px;}
+  .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+  .btn-cancel{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;}
+  .btn-cancel:hover{color:var(--text);border-color:var(--text);}
+  .btn-save{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:10px 24px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);cursor:pointer;transition:all .2s;}
+  .btn-save:hover{opacity:.9;}
+  .click-opts{display:flex;gap:8px;flex-wrap:wrap;}
+  .copt{font-size:12px;font-weight:500;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;}
+  .copt.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.1);}
+  .copt.sel.red{border-color:var(--hot);color:var(--hot);background:rgba(255,77,109,.1);}
+  .copt.sel.orange{border-color:var(--warm);color:var(--warm);background:rgba(255,179,71,.1);}
+  .copt.sel.purple{border-color:var(--accent2);color:var(--accent2);background:rgba(123,111,255,.1);}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .ditem{background:var(--surface2);border-radius:8px;padding:12px;}
+  .ditem-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+  .ditem-value{font-size:14px;font-weight:500;}
+  .post-box{background:var(--surface2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:14px;font-size:13px;line-height:1.6;font-style:italic;margin-bottom:20px;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">IL<span>Lead</span>Pro</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-size:12px;color:var(--muted);">Illinois Real Estate Lead System</span>
+    <div class="header-badge">LIVE</div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nav-tab active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="nav-tab" onclick="switchTab('leads')">🎯 All Leads</button>
+  <button class="nav-tab" onclick="switchTab('forwarded')">📤 Forwarded</button>
+  <button class="nav-tab" onclick="switchTab('deals')">💰 Deals & Payments</button>
+</div>
+
+<div class="main">
+  <div class="stats-row">
+    <div class="stat-card s-total"><div class="stat-label">Total Leads</div><div class="stat-value" id="st-total">0</div></div>
+    <div class="stat-card s-hot"><div class="stat-label">🔥 Hot Leads</div><div class="stat-value" id="st-hot">0</div></div>
+    <div class="stat-card s-fwd"><div class="stat-label">📤 Forwarded</div><div class="stat-value" id="st-fwd">0</div></div>
+    <div class="stat-card s-closed"><div class="stat-label">✅ Deals Closed</div><div class="stat-value" id="st-closed">0</div></div>
+    <div class="stat-card s-money"><div class="stat-label">💰 Total Earned</div><div class="stat-value" id="st-earned">$0</div></div>
+    <div class="stat-card s-pending"><div class="stat-label">⏳ Pending</div><div class="stat-value" id="st-pending">$0</div></div>
+  </div>
+
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="toolbar">
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Recent Leads</div>
+      <button class="add-btn" onclick="openAdd()">+ Add Lead</button>
+    </div>
+    <div class="leads-table">
+      <div class="table-header">
+        <div class="th">#</div><div class="th">Name</div><div class="th">Contact</div>
+        <div class="th">Source</div><div class="th">Score</div><div class="th">Type</div>
+        <div class="th">Status</div><div class="th">Partner</div><div class="th">Your Fee</div><div class="th">Action</div>
+      </div>
+      <div id="rows-dashboard"></div>
+    </div>
+  </div>
+
+  <div id="tab-leads" class="tab-content">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn fhot" onclick="setFilter('hot',this)">🔥 Hot</button>
+        <button class="filter-btn fwarm" onclick="setFilter('warm',this)">⚡ Warm</button>
+        <button class="filter-btn fcold" onclick="setFilter('cold',this)">❄️ Cold</button>
+      </div>
+      <button class="add-btn" onclick="openAdd()">+ Add Lead</button>
+    </div>
+    <div class="leads-table">
+      <div class="table-header">
+        <div class="th">#</div><div class="th">Name</div><div class="th">Contact</div>
+        <div class="th">Source</div><div class="th">Score</div><div class="th">Type</div>
+        <div class="th">Status</div><div class="th">Partner</div><div class="th">Your Fee</div><div class="th">Action</div>
+      </div>
+      <div id="rows-leads"></div>
+    </div>
+  </div>
+
+  <div id="tab-forwarded" class="tab-content">
+    <div class="toolbar"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Forwarded Leads</div></div>
+    <div class="leads-table">
+      <div class="table-header">
+        <div class="th">#</div><div class="th">Name</div><div class="th">Contact</div>
+        <div class="th">Source</div><div class="th">Score</div><div class="th">Type</div>
+        <div class="th">Status</div><div class="th">Partner</div><div class="th">Your Fee</div><div class="th">Action</div>
+      </div>
+      <div id="rows-forwarded"></div>
+    </div>
+  </div>
+
+  <div id="tab-deals" class="tab-content">
+    <div class="toolbar"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Deals & Payments</div></div>
+    <div class="leads-table">
+      <div class="table-header">
+        <div class="th">#</div><div class="th">Name</div><div class="th">Contact</div>
+        <div class="th">Source</div><div class="th">Score</div><div class="th">Type</div>
+        <div class="th">Status</div><div class="th">Partner</div><div class="th">Your Fee</div><div class="th">Action</div>
+      </div>
+      <div id="rows-deals"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Add New Lead</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="sec-title">👤 Lead Basic Info</div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="a-name" placeholder="John Martinez"/></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="a-phone" placeholder="630-555-xxxx"/></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" placeholder="john@gmail.com"/></div>
+        <div class="form-group"><label class="form-label">Area / City</label><input class="form-input" id="a-area" placeholder="Elmhurst, DuPage County..."/></div>
+        <div class="form-group"><label class="form-label">Source</label>
+          <select class="form-select" id="a-source">
+            <option>Craigslist</option><option>Reddit</option><option>Zillow</option>
+            <option>Twitter</option><option>Facebook</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <div class="click-opts" id="a-type">
+            <button class="copt sel" onclick="pick(this,'a-type')">🏠 Seller</button>
+            <button class="copt" onclick="pick(this,'a-type')">🔍 Buyer</button>
+            <button class="copt" onclick="pick(this,'a-type')">🏢 Investor</button>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Lead Score</label>
+          <div class="click-opts" id="a-score">
+            <button class="copt sel red" onclick="pick(this,'a-score')">🔥 Hot</button>
+            <button class="copt" onclick="pick(this,'a-score')">⚡ Warm</button>
+            <button class="copt" onclick="pick(this,'a-score')">❄️ Cold</button>
+          </div>
+        </div>
+        <div class="form-group full"><label class="form-label">Original Post / What They Said</label>
+          <textarea class="form-textarea" id="a-post" placeholder="Paste their post or what they said about buying/selling..."></textarea>
+        </div>
+      </div>
+      <div class="sec-title">📤 Forward to Partner</div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Forwarded?</label>
+          <div class="click-opts" id="a-fwd">
+            <button class="copt" onclick="pick(this,'a-fwd')">✅ Yes</button>
+            <button class="copt sel red" onclick="pick(this,'a-fwd')">❌ Not Yet</button>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Partner Name ✏️</label><input class="form-input" id="a-partner" placeholder="Mike Johnson - RE/MAX"/></div>
+        <div class="form-group"><label class="form-label">Forward Method</label>
+          <div class="click-opts" id="a-method">
+            <button class="copt sel" onclick="pick(this,'a-method')">Email</button>
+            <button class="copt" onclick="pick(this,'a-method')">WhatsApp</button>
+            <button class="copt" onclick="pick(this,'a-method')">SMS</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn-save" onclick="saveLead()">Save Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="det-title">Lead Details</div>
+      <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-detail')">Close</button>
+      <button class="btn-save" onclick="saveDetail()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let leads=[
+  {id:1,name:"Sarah Kowalski",phone:"312-555-0192",email:"sarah.k@gmail.com",area:"Chicago, IL",source:"Reddit",type:"🔍 Buyer",score:"🔥 Hot",post:"Looking to buy my first home in Chicago area, budget around $320k. Anyone recommend a good neighborhood for young families?",dateFound:"2026-05-19 08:42",forwarded:"✅ Yes",partner:"Mike Johnson - RE/MAX",method:"Email",status:"🔄 In Progress",dateClosed:"",dealValue:"",agentPct:"",yourPct:"",payRcvd:"❌ Pending",payDate:"",payMethod:"",notes:"Very motivated, pre-approved for $350k"},
+  {id:2,name:"Tom Reyes",phone:"630-555-0847",email:"tomreyes@yahoo.com",area:"Elmhurst, IL",source:"Craigslist",type:"🏠 Seller",score:"🔥 Hot",post:"Selling my 3BR 2BA house in Elmhurst, need to sell fast, relocating for work. Price negotiable.",dateFound:"2026-05-20 10:15",forwarded:"❌ Not Yet",partner:"",method:"Email",status:"new",dateClosed:"",dealValue:"",agentPct:"",yourPct:"",payRcvd:"❌ Pending",payDate:"",payMethod:"",notes:""},
+  {id:3,name:"Linda Park",phone:"847-555-0334",email:"lpark@hotmail.com",area:"Evanston, IL",source:"Facebook",type:"🏠 Seller",score:"⚡ Warm",post:"Anyone know a good real estate agent in Evanston? Thinking of selling our condo next year.",dateFound:"2026-05-18 14:30",forwarded:"✅ Yes",partner:"Anna Smith - Coldwell Banker",method:"WhatsApp",status:"✅ Closed",dateClosed:"2026-05-20",dealValue:"285000",agentPct:"3",yourPct:"20",payRcvd:"✅ Yes",payDate:"2026-05-21",payMethod:"Zelle",notes:"Quick close, smooth deal"}
+];
+let currentId=null,filterMode='all';
+
+function fmt(n){if(!n&&n!==0)return'—';return'$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function calcFee(l){if(!l.dealValue||!l.agentPct||!l.yourPct)return null;return parseFloat(l.dealValue)*(parseFloat(l.agentPct)/100)*(parseFloat(l.yourPct)/100);}
+function pick(btn,gid){document.querySelectorAll('#'+gid+' .copt').forEach(b=>{b.classList.remove('sel','red','orange','purple');});btn.classList.add('sel');const t=btn.textContent;if(t.includes('Hot')||t.includes('Lost')||t.includes('❌'))btn.classList.add('red');else if(t.includes('Warm')||t.includes('Progress'))btn.classList.add('orange');else if(t.includes('Investor')||t.includes('Yes')||t.includes('Forwarded')||t.includes('Pending')||t.includes('Purple'))btn.classList.add('purple');}
+function getSel(gid){const b=document.querySelector('#'+gid+' .copt.sel');return b?b.textContent.trim():'';}
+
+function scoreClass(s){if(s.includes('Hot'))return'score-hot';if(s.includes('Warm'))return'score-warm';return'score-cold';}
+function srcClass(s){return'src-'+s.toLowerCase().replace('/x','').replace('twitter','twitter');}
+function typeClass(t){if(t.includes('Seller'))return'type-seller';if(t.includes('Buyer'))return'type-buyer';return'type-investor';}
+function stClass(s){if(s==='🔄 In Progress')return'st-progress';if(s==='✅ Closed')return'st-closed';if(s==='❌ Lost')return'st-lost';return'st-new';}
+function stLabel(s){if(s==='🔄 In Progress')return'🔄 Progress';if(s==='✅ Closed')return'✅ Closed';if(s==='❌ Lost')return'❌ Lost';return'⬜ New';}
+
+function row(l){
+  const fee=calcFee(l);
+  return `<div class="lead-row" onclick="openDetail(${l.id})">
+    <div class="lead-id">#${String(l.id).padStart(3,'0')}</div>
+    <div class="lead-name">${l.name}</div>
+    <div class="lead-contact">${l.phone||l.email||'—'}</div>
+    <div><span class="badge ${srcClass(l.source)}">${l.source}</span></div>
+    <div class="${scoreClass(l.score)}" style="font-size:12px;">${l.score}</div>
+    <div><span class="badge ${typeClass(l.type)}">${l.type}</span></div>
+    <div><span class="badge ${stClass(l.status)}">${stLabel(l.status)}</span></div>
+    <div style="font-size:12px;color:var(--muted);">${l.partner||'—'}</div>
+    <div class="fee-val">${fee!==null?fmt(fee):'—'}</div>
+    <div><button class="forward-btn ${l.forwarded==='✅ Yes'?'fwded':''}" onclick="event.stopPropagation();toggleFwd(${l.id})">${l.forwarded==='✅ Yes'?'✅ Sent':'📤 Forward'}</button></div>
+  </div>`;
+}
+
+function render(){
+  const filtered=filterMode==='all'?leads:leads.filter(l=>{
+    if(filterMode==='hot')return l.score.includes('Hot');
+    if(filterMode==='warm')return l.score.includes('Warm');
+    if(filterMode==='cold')return l.score.includes('Cold');
+    return true;
+  });
+  const el=id=>document.getElementById(id);
+  el('rows-dashboard').innerHTML=[...leads].reverse().slice(0,5).map(row).join('')||'<div class="no-rows">No leads yet. Click + Add Lead to start!</div>';
+  el('rows-leads').innerHTML=filtered.map(row).join('')||'<div class="no-rows">No leads match this filter.</div>';
+  el('rows-forwarded').innerHTML=leads.filter(l=>l.forwarded==='✅ Yes').map(row).join('')||'<div class="no-rows">No forwarded leads yet.</div>';
+  el('rows-deals').innerHTML=leads.filter(l=>l.status!=='new').map(row).join('')||'<div class="no-rows">No deals tracked yet.</div>';
+  stats();
+}
+
+function stats(){
+  document.getElementById('st-total').textContent=leads.length;
+  document.getElementById('st-hot').textContent=leads.filter(l=>l.score.includes('Hot')).length;
+  document.getElementById('st-fwd').textContent=leads.filter(l=>l.forwarded==='✅ Yes').length;
+  document.getElementById('st-closed').textContent=leads.filter(l=>l.status==='✅ Closed').length;
+  let earned=0,pending=0;
+  leads.forEach(l=>{const f=calcFee(l);if(f!==null){if(l.payRcvd==='✅ Yes')earned+=f;else if(l.status==='✅ Closed')pending+=f;}});
+  document.getElementById('st-earned').textContent=fmt(earned);
+  document.getElementById('st-pending').textContent=fmt(pending);
+}
+
+function switchTab(t){
+  const tabs=['dashboard','leads','forwarded','deals'];
+  document.querySelectorAll('.nav-tab').forEach((btn,i)=>btn.classList.toggle('active',tabs[i]===t));
+  document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  render();
+}
+
+function setFilter(mode,btn){
+  filterMode=mode;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function toggleFwd(id){const l=leads.find(x=>x.id===id);if(l)l.forwarded=l.forwarded==='✅ Yes'?'❌ Not Yet':'✅ Yes';render();}
+function openAdd(){document.getElementById('modal-add').classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function saveLead(){
+  const name=document.getElementById('a-name').value.trim();
+  if(!name){alert('Please enter a name');return;}
+  leads.unshift({
+    id:leads.length?Math.max(...leads.map(l=>l.id))+1:1,
+    name,phone:document.getElementById('a-phone').value.trim(),
+    email:document.getElementById('a-email').value.trim(),
+    area:document.getElementById('a-area').value.trim(),
+    source:document.getElementById('a-source').value,
+    type:getSel('a-type'),score:getSel('a-score'),
+    post:document.getElementById('a-post').value.trim(),
+    dateFound:new Date().toISOString().slice(0,16).replace('T',' '),
+    forwarded:getSel('a-fwd'),partner:document.getElementById('a-partner').value.trim(),
+    method:getSel('a-method'),status:'new',dateClosed:'',dealValue:'',
+    agentPct:'',yourPct:'',payRcvd:'❌ Pending',payDate:'',payMethod:'',notes:''
+  });
+  closeModal('modal-add');
+  ['a-name','a-phone','a-email','a-area','a-post','a-partner'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+
+function openDetail(id){
+  currentId=id;
+  const l=leads.find(x=>x.id===id);
+  if(!l)return;
+  const agentEarns=l.dealValue&&l.agentPct?parseFloat(l.dealValue)*parseFloat(l.agentPct)/100:null;
+  const fee=calcFee(l);
+  document.getElementById('det-title').textContent=`#${String(l.id).padStart(3,'0')} — ${l.name}`;
+  document.getElementById('det-body').innerHTML=`
+    <div class="sec-title">👤 Lead Info (Auto-Captured)</div>
+    <div class="detail-grid">
+      <div class="ditem"><div class="ditem-label">Name</div><div class="ditem-value">${l.name}</div></div>
+      <div class="ditem"><div class="ditem-label">Phone</div><div class="ditem-value">${l.phone||'—'}</div></div>
+      <div class="ditem"><div class="ditem-label">Email</div><div class="ditem-value">${l.email||'—'}</div></div>
+      <div class="ditem"><div class="ditem-label">Area</div><div class="ditem-value">${l.area||'—'}</div></div>
+      <div class="ditem"><div class="ditem-label">Source</div><div class="ditem-value">${l.source}</div></div>
+      <div class="ditem"><div class="ditem-label">Date Found</div><div class="ditem-value">${l.dateFound}</div></div>
+      <div class="ditem"><div class="ditem-label">Type</div><div class="ditem-value">${l.type}</div></div>
+      <div class="ditem"><div class="ditem-label">Score</div><div class="ditem-value ${scoreClass(l.score)}">${l.score}</div></div>
+    </div>
+    <div class="sec-title">💬 Original Post</div>
+    <div class="post-box">"${l.post||'No post recorded'}"</div>
+    <div class="sec-title">📤 Forward to Partner</div>
+    <div class="form-grid" style="margin-bottom:20px;">
+      <div class="form-group"><label class="form-label">Forwarded?</label>
+        <div class="click-opts" id="d-fwd">
+          <button class="copt ${l.forwarded==='✅ Yes'?'sel purple':''}" onclick="pick(this,'d-fwd')">✅ Yes</button>
+          <button class="copt ${l.forwarded!=='✅ Yes'?'sel red':''}" onclick="pick(this,'d-fwd')">❌ Not Yet</button>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Partner Name ✏️</label><input class="form-input" id="d-partner" value="${l.partner||''}" placeholder="Mike Johnson - RE/MAX"/></div>
+      <div class="form-group"><label class="form-label">Forward Method</label>
+        <div class="click-opts" id="d-method">
+          <button class="copt ${l.method==='Email'?'sel':''}" onclick="pick(this,'d-method')">Email</button>
+          <button class="copt ${l.method==='WhatsApp'?'sel':''}" onclick="pick(this,'d-method')">WhatsApp</button>
+          <button class="copt ${l.method==='SMS'?'sel':''}" onclick="pick(this,'d-method')">SMS</button>
+        </div>
+      </div>
+    </div>
+    <div class="sec-title">💰 Deal Tracking</div>
+    <div class="form-grid" style="margin-bottom:16px;">
+      <div class="form-group"><label class="form-label">Deal Status</label>
+        <div class="click-opts" id="d-status">
+          <button class="copt ${l.status==='🔄 In Progress'?'sel orange':''}" onclick="pick(this,'d-status')">🔄 In Progress</button>
+          <button class="copt ${l.status==='✅ Closed'?'sel':''}" onclick="pick(this,'d-status')">✅ Closed</button>
+          <button class="copt ${l.status==='❌ Lost'?'sel red':''}" onclick="pick(this,'d-status')">❌ Lost</button>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Date Closed ✏️</label><input class="form-input" type="date" id="d-dateclosed" value="${l.dateClosed||''}"/></div>
+      <div class="form-group"><label class="form-label">Deal Value $ ✏️</label><input class="form-input" id="d-dv" value="${l.dealValue||''}" placeholder="350000" oninput="liveCalc()"/></div>
+      <div class="form-group"><label class="form-label">Agent Commission % ✏️</label><input class="form-input" id="d-ap" value="${l.agentPct||''}" placeholder="3" oninput="liveCalc()"/></div>
+      <div class="form-group"><label class="form-label">Your Cut % ✏️</label><input class="form-input" id="d-yp" value="${l.yourPct||''}" placeholder="20" oninput="liveCalc()"/></div>
+    </div>
+    <div class="calc-box">
+      <div class="calc-title">🧮 Fee Calculator (Auto)</div>
+      <div class="calc-row"><span>Deal Value</span><span class="calc-val" id="cv-dv">${l.dealValue?fmt(l.dealValue):'—'}</span></div>
+      <div class="calc-row"><span>Agent Earns (${l.agentPct||'?'}%)</span><span class="calc-val" id="cv-ac">${agentEarns!==null?fmt(agentEarns):'—'}</span></div>
+      <div class="calc-row total"><span>💰 Your Fee (${l.yourPct||'?'}%)</span><span class="calc-val" id="cv-fee">${fee!==null?fmt(fee):'—'}</span></div>
+    </div>
+    <div class="sec-title">💳 Payment</div>
+    <div class="form-grid" style="margin-bottom:16px;">
+      <div class="form-group"><label class="form-label">Payment Received?</label>
+        <div class="click-opts" id="d-pay">
+          <button class="copt ${l.payRcvd==='✅ Yes'?'sel':''}" onclick="pick(this,'d-pay')">✅ Yes</button>
+          <button class="copt ${l.payRcvd!=='✅ Yes'?'sel red':''}" onclick="pick(this,'d-pay')">❌ Pending</button>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Payment Date ✏️</label><input class="form-input" type="date" id="d-paydate" value="${l.payDate||''}"/></div>
+      <div class="form-group"><label class="form-label">Payment Method</label>
+        <div class="click-opts" id="d-paymethod">
+          <button class="copt ${l.payMethod==='Zelle'?'sel':''}" onclick="pick(this,'d-paymethod')">Zelle</button>
+          <button class="copt ${l.payMethod==='Venmo'?'sel':''}" onclick="pick(this,'d-paymethod')">Venmo</button>
+          <button class="copt ${l.payMethod==='Check'?'sel':''}" onclick="pick(this,'d-paymethod')">Check</button>
+          <button class="copt ${l.payMethod==='Cash'?'sel':''}" onclick="pick(this,'d-paymethod')">Cash</button>
+        </div>
+      </div>
+    </div>
+    <div class="sec-title">📝 Notes</div>
+    <div class="form-group"><textarea class="form-textarea" id="d-notes" placeholder="Any extra info...">${l.notes||''}</textarea></div>
+  `;
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+function liveCalc(){
+  const dv=parseFloat(document.getElementById('d-dv')?.value);
+  const ap=parseFloat(document.getElementById('d-ap')?.value);
+  const yp=parseFloat(document.getElementById('d-yp')?.value);
+  const dvEl=document.getElementById('cv-dv');
+  const acEl=document.getElementById('cv-ac');
+  const feeEl=document.getElementById('cv-fee');
+  if(dvEl)dvEl.textContent=!isNaN(dv)?fmt(dv):'—';
+  if(acEl)acEl.textContent=(!isNaN(dv)&&!isNaN(ap))?fmt(dv*ap/100):'—';
+  if(feeEl)feeEl.textContent=(!isNaN(dv)&&!isNaN(ap)&&!isNaN(yp))?fmt(dv*ap/100*yp/100):'—';
+}
+
+function saveDetail(){
+  const l=leads.find(x=>x.id===currentId);
+  if(!l)return;
+  l.forwarded=getSel('d-fwd');
+  l.partner=document.getElementById('d-partner')?.value.trim()||'';
+  l.method=getSel('d-method');
+  l.status=getSel('d-status')||'new';
+  l.dateClosed=document.getElementById('d-dateclosed')?.value||'';
+  l.dealValue=document.getElementById('d-dv')?.value.trim()||'';
+  l.agentPct=document.getElementById('d-ap')?.value.trim()||'';
+  l.yourPct=document.getElementById('d-yp')?.value.trim()||'';
+  l.payRcvd=getSel('d-pay');
+  l.payDate=document.getElementById('d-paydate')?.value||'';
+  l.payMethod=getSel('d-paymethod');
+  l.notes=document.getElementById('d-notes')?.value.trim()||'';
+  closeModal('modal-detail');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
