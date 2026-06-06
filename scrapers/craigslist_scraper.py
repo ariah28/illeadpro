@@ -20,19 +20,19 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; ILLeadPro/1.0; RSS reader)'
 }
 
-# Craigslist RSS feeds — much more reliable than HTML scraping
+# Craigslist RSS feeds — updated to new ?format=rss URL format
 CL_FEEDS = [
     # Chicago metro
-    ("https://chicago.craigslist.org/search/rea.rss", "Chicago",       "RE For Sale"),
-    ("https://chicago.craigslist.org/search/reo.rss", "Chicago",       "RE Wanted"),
-    ("https://chicago.craigslist.org/search/hsw.rss", "Chicago",       "Housing Wanted"),
+    ("https://chicago.craigslist.org/search/rea?format=rss", "Chicago",       "RE For Sale"),
+    ("https://chicago.craigslist.org/search/reo?format=rss", "Chicago",       "RE Wanted"),
+    ("https://chicago.craigslist.org/search/hsw?format=rss", "Chicago",       "Housing Wanted"),
     # Downstate / suburbs
-    ("https://bloomington.craigslist.org/search/rea.rss",   "Bloomington IL",  "RE For Sale"),
-    ("https://champaign.craigslist.org/search/rea.rss",     "Champaign IL",    "RE For Sale"),
-    ("https://peoria.craigslist.org/search/rea.rss",        "Peoria IL",       "RE For Sale"),
-    ("https://rockford.craigslist.org/search/rea.rss",      "Rockford IL",     "RE For Sale"),
-    ("https://springfieldil.craigslist.org/search/rea.rss", "Springfield IL",  "RE For Sale"),
-    ("https://decatur.craigslist.org/search/rea.rss",       "Decatur IL",      "RE For Sale"),
+    ("https://bloomington.craigslist.org/search/rea?format=rss",   "Bloomington IL",  "RE For Sale"),
+    ("https://champaign.craigslist.org/search/rea?format=rss",     "Champaign IL",    "RE For Sale"),
+    ("https://peoria.craigslist.org/search/rea?format=rss",        "Peoria IL",       "RE For Sale"),
+    ("https://rockford.craigslist.org/search/rea?format=rss",      "Rockford IL",     "RE For Sale"),
+    ("https://springfieldil.craigslist.org/search/rea?format=rss", "Springfield IL",  "RE For Sale"),
+    ("https://decatur.craigslist.org/search/rea?format=rss",       "Decatur IL",      "RE For Sale"),
 ]
 
 
