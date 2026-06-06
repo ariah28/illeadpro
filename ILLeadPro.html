@@ -501,10 +501,10 @@ function saveDetail(){
   l.payMethod=getSel('d-paymethod');
   l.notes=document.getElementById('d-notes')?.value.trim()||'';
   closeModal('modal-detail');
-  render();
 }
 
-render();
+fetch("/api/leads").then(r=>r.json()).then(data=>{leads=data;render();}).catch(()=>render());
+setInterval(()=>fetch("/api/leads").then(r=>r.json()).then(data=>{leads=data;render();}),60000);
 </script>
 </body>
 </html>
