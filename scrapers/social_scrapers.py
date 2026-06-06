@@ -62,12 +62,12 @@ def scrape_twitter():
 
     # --- Part 1: Downstate IL Craigslist RSS ---
     extra_feeds = [
-        ("https://kankakee.craigslist.org/search/rea.rss",    "Kankakee IL"),
-        ("https://quincy.craigslist.org/search/rea.rss",      "Quincy IL"),
-        ("https://rockford.craigslist.org/search/reo.rss",    "Rockford IL Wanted"),
-        ("https://peoria.craigslist.org/search/hsw.rss",      "Peoria IL Wanted"),
-        ("https://champaign.craigslist.org/search/reo.rss",   "Champaign IL Wanted"),
-        ("https://springfieldil.craigslist.org/search/reo.rss", "Springfield IL Wanted"),
+        ("https://kankakee.craigslist.org/search/rea?format=rss",    "Kankakee IL"),
+        ("https://quincy.craigslist.org/search/rea?format=rss",      "Quincy IL"),
+        ("https://rockford.craigslist.org/search/reo?format=rss",    "Rockford IL Wanted"),
+        ("https://peoria.craigslist.org/search/hsw?format=rss",      "Peoria IL Wanted"),
+        ("https://champaign.craigslist.org/search/reo?format=rss",   "Champaign IL Wanted"),
+        ("https://springfieldil.craigslist.org/search/reo?format=rss", "Springfield IL Wanted"),
     ]
 
     for feed_url, area in extra_feeds:
@@ -197,16 +197,15 @@ def scrape_cook_county_foreclosures():
 
     sources = [
         {
-            'url':  'https://www.cookcountysheriff.org/departments/'
-                    'civil-process-division/real-estate-sales/',
+            'url':  'https://www.cookcountysheriff.org/civil-process/real-estate-sales/',
             'name': 'Cook County Sheriff Sales',
         },
         {
-            'url':  'https://www.illinoispublicnotices.com/foreclosure/Cook',
-            'name': 'Illinois Public Notices — Cook',
+            'url':  'https://www.illinoislegalaid.org/legal-information/foreclosure',
+            'name': 'Illinois Legal Aid Foreclosure',
         },
         {
-            'url':  'https://www.cookcountyclerkofcourt.org/',
+            'url':  'https://www.cookcountyclerkofcourt.org/foreclosure-mediation',
             'name': 'Cook County Clerk of Court',
         },
     ]
@@ -299,22 +298,22 @@ def scrape_dupage_records():
 
     sources = [
         {
-            'url':    'https://dupagesheriff.org/divisions/civil-process/real-estate-sales/',
+            'url':    'https://www.dupageco.org/Sheriff/Civil_Process/Real_Estate_Sales/',
             'name':   'DuPage Sheriff Sales',
             'score':  '🔥 Hot',
             'reason': 'Sheriff sale — distressed / court-ordered property',
         },
         {
-            'url':    'https://www.illinoispublicnotices.com/foreclosure/DuPage',
-            'name':   'Illinois Public Notices — DuPage',
-            'score':  '🔥 Hot',
-            'reason': 'Foreclosure notice — court-ordered sale',
-        },
-        {
-            'url':    'https://www.dupageco.org/CountyDepartments/CountyClerk/TaxRedemption/',
-            'name':   'DuPage Tax Redemption',
+            'url':    'https://www.dupageco.org/Treasurer/Tax_Sales/',
+            'name':   'DuPage Tax Sales',
             'score':  '🔥 Hot',
             'reason': 'Tax delinquent property — motivated to resolve',
+        },
+        {
+            'url':    'https://www.dupageco.org/Sheriff/Civil_Process/',
+            'name':   'DuPage Civil Process',
+            'score':  '🔥 Hot',
+            'reason': 'Court-ordered civil process — distressed property',
         },
     ]
 
