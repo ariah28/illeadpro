@@ -62,16 +62,17 @@ def _scrape_cook_county_api():
         {
             'url':  'https://datacatalog.cookcountyil.gov/resource/wvhk-k5uv.json',
             'name': 'Cook County Assessor Sales',
-            'addr_keys': ['property_address', 'address', 'prop_address', 'site_location'],
-            'price_keys': ['sale_price', 'price', 'assessed_value'],
         },
         {
             'url':  'https://datacatalog.cookcountyil.gov/resource/5pge-nu6u.json',
             'name': 'Cook County Recorder Deeds',
-            'addr_keys': ['address', 'property_address', 'legal_description'],
-            'price_keys': ['consideration', 'sale_price', 'price'],
         },
     ]
+
+    addr_keys  = ['addr', 'address', 'property_address', 'prop_address',
+                  'site_location', 'location', 'street', 'full_address']
+    price_keys = ['sale_price', 'price', 'assessed_value', 'consideration',
+                  'amount', 'market_value', 'estimated_market_value']
 
     for ds in datasets:
         try:
@@ -93,47 +94,46 @@ def _scrape_cook_county_api():
 
             for rec in records[:20]:
                 try:
-                    addr = next(
-                        (str(rec[k]) for k in ds['addr_keys'] if rec.get(k)), ''
-                    )
-                    price = next(
-                        (str(rec[k]) for k in ds['price_keys'] if rec.get(k)), ''
-                    )
+                    # Find address — check known keys first, then scan all fields
+                    addr = next((str(rec[k]) for k in addr_keys if rec.get(k) and len(str(rec[k])) > 4), '')
+                    if not addr:
+                        # Scan all string fields for something address-like
+                        for k, v in rec.items():
+                            if isinstance(v, str) and len(v) > 8:
+                                if any(t in k.lower() for t in ['addr', 'street', 'prop', 'loc']):
+                                    addr = v
+                                    break
 
                     if not addr or len(addr) < 5:
                         continue
 
-                    # Skip if no Illinois indicator
-                    area = f"{addr}, Cook County, IL"
+                    price = next((str(rec[k]) for k in price_keys
+                                  if rec.get(k) and str(rec[k]) not in ('0', '0.0', '')), '')
+
+                    area      = 'Cook County, IL'
                     post_text = (
-                        f"COOK COUNTY PROPERTY: {addr}. "
-                        f"Sale price: {price}. Cook County, IL."
+                        f"COOK COUNTY PROPERTY RECORD: {addr}. "
+                        f"Price/Value: {price}. Cook County, IL."
                     )
-                    analysis = score_lead(post_text, 'Public Records', 'Cook County IL')
 
-                    if not analysis.get('is_real_estate_lead'):
-                        # Still add foreclosure/distressed as hot leads
-                        if not any(k in post_text.lower() for k in
-                                   ['foreclos', 'sheriff', 'tax', 'auction']):
-                            continue
-
+                    # Skip AI scoring for public records — they're always real estate
                     lead = {
                         'name':           'Cook County Property',
                         'phone':          '',
                         'email':          '',
                         'area':           area,
                         'source':         'Public Records',
-                        'type':           analysis.get('type', '🏠 Seller'),
-                        'score':          analysis.get('score', '⚡ Warm'),
+                        'type':           '🏠 Seller',
+                        'score':          '⚡ Warm',
                         'post':           post_text,
                         'link':           ds['url'],
-                        'reason':         analysis.get('reason', 'Cook County public property record'),
+                        'reason':         'Cook County public property record — potential motivated seller',
                         'estimatedValue': price,
                     }
 
                     if add_lead(lead):
                         new_leads += 1
-                        print(f"  ✅ Cook County: {addr[:50]}...")
+                        print(f"  ✅ Cook County API: {addr[:50]}...")
 
                     time.sleep(random.uniform(0.1, 0.3))
 
