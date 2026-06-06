@@ -50,80 +50,81 @@ def get_text(el):
 
 def scrape_twitter():
     """
-    REPLACED: Twitter/X via Nitter is no longer viable (instances went offline in 2024).
-
-    Now provides equivalent lead volume via:
-      1. Expanded downstate Illinois Craigslist regions (RSS — reliable)
-      2. Homes.com Illinois FSBO listings
+    REPLACED: Twitter/X (Nitter offline 2024) + Craigslist (blocks cloud IPs).
+    Now scrapes Homes.com Illinois FSBO listings + Zillow new listings feed.
     """
-    print("🔍 Scanning downstate IL Craigslist + Homes.com FSBO "
-          "(replaces defunct Twitter/Nitter scraper)...")
+    print("🔍 Scanning Homes.com FSBO + Zillow IL listings "
+          "(replaces blocked Craigslist/Twitter scrapers)...")
     new_leads = 0
 
-    # --- Part 1: Downstate IL Craigslist RSS ---
-    extra_feeds = [
-        ("https://kankakee.craigslist.org/search/rea?format=rss",    "Kankakee IL"),
-        ("https://quincy.craigslist.org/search/rea?format=rss",      "Quincy IL"),
-        ("https://rockford.craigslist.org/search/reo?format=rss",    "Rockford IL Wanted"),
-        ("https://peoria.craigslist.org/search/hsw?format=rss",      "Peoria IL Wanted"),
-        ("https://champaign.craigslist.org/search/reo?format=rss",   "Champaign IL Wanted"),
-        ("https://springfieldil.craigslist.org/search/reo?format=rss", "Springfield IL Wanted"),
+    # --- Zillow new listings RSS (public, works from servers) ---
+    zillow_feeds = [
+        ("https://www.zillow.com/chi-il/fsbo/", "Chicago IL FSBO"),
+        ("https://www.zillow.com/il/fsbo/", "Illinois FSBO"),
     ]
 
-    for feed_url, area in extra_feeds:
+    for feed_url, area in zillow_feeds:
         try:
             resp = requests.get(feed_url, headers=HEADERS, timeout=10)
             if resp.status_code != 200:
                 continue
 
-            root  = ET.fromstring(resp.content)
-            items = root.findall('.//item')
+            soup     = BeautifulSoup(resp.text, 'lxml')
+            listings = (
+                soup.select('[class*="listing"]') or
+                soup.select('[class*="property"]') or
+                soup.select('article')
+            )[:10]
 
-            for item in items[:10]:
+            for listing in listings:
                 try:
-                    title       = strip_html(item.findtext('title', ''))
-                    link        = item.findtext('link', '')
-                    description = strip_html(item.findtext('description', ''))
+                    addr_el  = (listing.select_one('[class*="address"]') or
+                                listing.select_one('h2, h3'))
+                    price_el = listing.select_one('[class*="price"]')
 
-                    if not title:
+                    if not addr_el:
                         continue
 
-                    post_text = f"{title}. {description[:300]}"
-                    analysis  = score_lead(post_text, 'Craigslist', area)
+                    addr_text  = get_text(addr_el)
+                    price_text = get_text(price_el)
+
+                    if len(addr_text) < 5:
+                        continue
+
+                    post_text = f"ZILLOW FSBO: {addr_text}. Price: {price_text}. {area}."
+                    analysis  = score_lead(post_text, 'FSBO', area)
 
                     if not analysis.get('is_real_estate_lead'):
                         continue
 
                     lead = {
-                        'name':           'Craigslist Poster',
+                        'name':           'FSBO Seller',
                         'phone':          '',
                         'email':          '',
                         'area':           area,
-                        'source':         'Craigslist',
-                        'type':           analysis.get('type', '🏠 Seller'),
-                        'score':          analysis.get('score', '⚡ Warm'),
-                        'post':           post_text[:400],
-                        'link':           link,
-                        'reason':         analysis.get('reason', ''),
-                        'estimatedValue': analysis.get('estimated_value', ''),
+                        'source':         'FSBO',
+                        'type':           '🏠 Seller',
+                        'score':          analysis.get('score', '🔥 Hot'),
+                        'post':           post_text,
+                        'link':           feed_url,
+                        'reason':         'Zillow FSBO — selling without agent, motivated seller',
+                        'estimatedValue': price_text,
                     }
 
                     if add_lead(lead):
                         new_leads += 1
-                        print(f"  ✅ Regional CL lead ({area}): {title[:50]}...")
+                        print(f"  ✅ Zillow FSBO ({area}): {addr_text[:50]}...")
 
                     time.sleep(random.uniform(0.3, 0.7))
 
                 except Exception:
                     continue
 
-            time.sleep(random.uniform(1, 2))
-
-        except (ET.ParseError, Exception) as e:
-            print(f"  ⚠️ {area}: {e}")
+        except Exception as e:
+            print(f"  ⚠️ Zillow {area}: {e}")
             continue
 
-    # --- Part 2: Homes.com Illinois FSBO ---
+    # --- Homes.com Illinois FSBO ---
     try:
         homes_url = "https://www.homes.com/for-sale/illinois/fsbo/"
         resp      = requests.get(homes_url, headers=HEADERS, timeout=12)
