@@ -171,6 +171,7 @@ def _scrape_homepath_reo():
             for listing in listings:
                 try:
                     addr_el  = (listing.select_one('[class*="address"]') or
+                                listing.select_one('[class*="street"]')   or
                                 listing.select_one('h2, h3, h4'))
                     price_el = listing.select_one('[class*="price"]')
 
@@ -181,6 +182,10 @@ def _scrape_homepath_reo():
                     price_text = get_text(price_el)
 
                     if len(addr_text) < 5:
+                        continue
+                    if addr_text.startswith('$') or addr_text.replace(',', '').replace('.', '').strip().isdigit():
+                        continue
+                    if not (any(c.isdigit() for c in addr_text) and any(c.isalpha() for c in addr_text)):
                         continue
 
                     post_text = (
@@ -259,6 +264,7 @@ def _scrape_foreclosure_sites():
             for listing in listings:
                 try:
                     addr_el  = (listing.select_one('[class*="address"]') or
+                                listing.select_one('[class*="street"]')   or
                                 listing.select_one('h2, h3, h4'))
                     price_el = listing.select_one('[class*="price"]')
 
@@ -268,7 +274,12 @@ def _scrape_foreclosure_sites():
                     addr_text  = get_text(addr_el)
                     price_text = get_text(price_el)
 
+                    # Skip if "address" is actually a price or invalid
                     if len(addr_text) < 5:
+                        continue
+                    if addr_text.startswith('$') or addr_text.replace(',', '').replace('.', '').strip().isdigit():
+                        continue
+                    if not (any(c.isdigit() for c in addr_text) and any(c.isalpha() for c in addr_text)):
                         continue
 
                     post_text = (
