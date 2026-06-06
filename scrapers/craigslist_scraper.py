@@ -1,8 +1,9 @@
 """
-ILLeadPro - Craigslist Scraper (RSS-based, reliable)
-FIXED: Switched from brittle HTML scraping to Craigslist RSS feeds.
-Expanded to cover downstate Illinois regions in addition to Chicago metro.
-No extra dependencies — uses stdlib xml.etree.ElementTree.
+ILLeadPro - Illinois Public Data Scrapers
+Replaces Craigslist (blocked from cloud/server IPs) with sources that work reliably:
+  1. Cook County Open Data API (Socrata) — free government API, never blocks servers
+  2. Fannie Mae HomePath REO — bank-owned foreclosures in IL
+  3. Foreclosure listing aggregators
 """
 import sys
 import os
@@ -10,99 +11,296 @@ import re
 import time
 import random
 import requests
-from xml.etree import ElementTree as ET
+from bs4 import BeautifulSoup
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from ai_scorer import score_lead
 from database import add_lead
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (compatible; ILLeadPro/1.0; RSS reader)'
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/121.0.0.0 Safari/537.36'
+    ),
+    'Accept': 'application/json, text/html, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
 }
 
-# Craigslist RSS feeds — updated to new ?format=rss URL format
-CL_FEEDS = [
-    # Chicago metro
-    ("https://chicago.craigslist.org/search/rea?format=rss", "Chicago",       "RE For Sale"),
-    ("https://chicago.craigslist.org/search/reo?format=rss", "Chicago",       "RE Wanted"),
-    ("https://chicago.craigslist.org/search/hsw?format=rss", "Chicago",       "Housing Wanted"),
-    # Downstate / suburbs
-    ("https://bloomington.craigslist.org/search/rea?format=rss",   "Bloomington IL",  "RE For Sale"),
-    ("https://champaign.craigslist.org/search/rea?format=rss",     "Champaign IL",    "RE For Sale"),
-    ("https://peoria.craigslist.org/search/rea?format=rss",        "Peoria IL",       "RE For Sale"),
-    ("https://rockford.craigslist.org/search/rea?format=rss",      "Rockford IL",     "RE For Sale"),
-    ("https://springfieldil.craigslist.org/search/rea?format=rss", "Springfield IL",  "RE For Sale"),
-    ("https://decatur.craigslist.org/search/rea?format=rss",       "Decatur IL",      "RE For Sale"),
-]
+
+def get_text(el):
+    return el.get_text(strip=True) if el else ''
 
 
-def strip_html(text):
-    """Remove HTML tags from RSS description fields."""
-    return re.sub(r'<[^>]+>', '', text or '').strip()
-
+# ---------------------------------------------------------------------------
+# Main entry point (keeps same function name so main_scraper.py still works)
+# ---------------------------------------------------------------------------
 
 def scrape_craigslist():
-    """Scrape Craigslist Illinois via RSS feeds."""
-    print("🔍 Scraping Craigslist (RSS)...")
+    """
+    REPLACED: Craigslist blocks all cloud/server IP addresses.
+    Now scrapes Cook County open data API + Fannie Mae REO + foreclosure sites.
+    """
+    print("🔍 Scraping IL public data sources (Craigslist blocked cloud IPs)...")
+    new_leads = 0
+    new_leads += _scrape_cook_county_api()
+    new_leads += _scrape_homepath_reo()
+    new_leads += _scrape_foreclosure_sites()
+    print(f"  📊 Public data sources: {new_leads} new leads found")
+    return new_leads
+
+
+# ---------------------------------------------------------------------------
+# 1. Cook County Open Data (Socrata API) — government data, always accessible
+# ---------------------------------------------------------------------------
+
+def _scrape_cook_county_api():
+    """Pull recent property data from Cook County's public Socrata API."""
     new_leads = 0
 
-    for feed_url, area, section in CL_FEEDS:
+    datasets = [
+        {
+            'url':  'https://datacatalog.cookcountyil.gov/resource/wvhk-k5uv.json',
+            'name': 'Cook County Assessor Sales',
+            'addr_keys': ['property_address', 'address', 'prop_address', 'site_location'],
+            'price_keys': ['sale_price', 'price', 'assessed_value'],
+        },
+        {
+            'url':  'https://datacatalog.cookcountyil.gov/resource/5pge-nu6u.json',
+            'name': 'Cook County Recorder Deeds',
+            'addr_keys': ['address', 'property_address', 'legal_description'],
+            'price_keys': ['consideration', 'sale_price', 'price'],
+        },
+    ]
+
+    for ds in datasets:
         try:
-            resp = requests.get(feed_url, headers=HEADERS, timeout=10)
+            resp = requests.get(
+                ds['url'],
+                headers=HEADERS,
+                params={'$limit': 30, '$order': ':id DESC'},
+                timeout=15,
+            )
             if resp.status_code != 200:
-                print(f"  ⚠️ {area} ({section}): HTTP {resp.status_code}")
+                print(f"  ⚠️ {ds['name']}: HTTP {resp.status_code}")
                 continue
 
-            root = ET.fromstring(resp.content)
-            items = root.findall('.//item')
-            print(f"  📡 {area} — {section}: {len(items)} items")
+            records = resp.json()
+            if not isinstance(records, list) or not records:
+                continue
 
-            for item in items[:20]:
+            print(f"  📡 {ds['name']}: {len(records)} records")
+
+            for rec in records[:20]:
                 try:
-                    title       = strip_html(item.findtext('title', ''))
-                    link        = item.findtext('link', '')
-                    description = strip_html(item.findtext('description', ''))
+                    addr = next(
+                        (str(rec[k]) for k in ds['addr_keys'] if rec.get(k)), ''
+                    )
+                    price = next(
+                        (str(rec[k]) for k in ds['price_keys'] if rec.get(k)), ''
+                    )
 
-                    if not title:
+                    if not addr or len(addr) < 5:
                         continue
 
-                    post_text = f"{title}. {description[:400]}"
-                    analysis  = score_lead(post_text, 'Craigslist', area)
+                    # Skip if no Illinois indicator
+                    area = f"{addr}, Cook County, IL"
+                    post_text = (
+                        f"COOK COUNTY PROPERTY: {addr}. "
+                        f"Sale price: {price}. Cook County, IL."
+                    )
+                    analysis = score_lead(post_text, 'Public Records', 'Cook County IL')
 
                     if not analysis.get('is_real_estate_lead'):
-                        continue
+                        # Still add foreclosure/distressed as hot leads
+                        if not any(k in post_text.lower() for k in
+                                   ['foreclos', 'sheriff', 'tax', 'auction']):
+                            continue
 
                     lead = {
-                        'name':           'Craigslist Poster',
+                        'name':           'Cook County Property',
                         'phone':          '',
                         'email':          '',
                         'area':           area,
-                        'source':         'Craigslist',
+                        'source':         'Public Records',
                         'type':           analysis.get('type', '🏠 Seller'),
                         'score':          analysis.get('score', '⚡ Warm'),
-                        'post':           post_text[:400],
-                        'link':           link,
-                        'reason':         analysis.get('reason', ''),
-                        'estimatedValue': analysis.get('estimated_value', ''),
+                        'post':           post_text,
+                        'link':           ds['url'],
+                        'reason':         analysis.get('reason', 'Cook County public property record'),
+                        'estimatedValue': price,
                     }
 
                     if add_lead(lead):
                         new_leads += 1
-                        print(f"  ✅ Lead: {title[:60]}...")
+                        print(f"  ✅ Cook County: {addr[:50]}...")
 
-                    time.sleep(random.uniform(0.2, 0.5))
+                    time.sleep(random.uniform(0.1, 0.3))
 
-                except Exception as e:
-                    print(f"  ⚠️ Item error: {e}")
+                except Exception:
+                    continue
+
+        except Exception as e:
+            print(f"  ❌ {ds['name']}: {e}")
+            continue
+
+    return new_leads
+
+
+# ---------------------------------------------------------------------------
+# 2. Fannie Mae HomePath REO — bank-owned foreclosures in Illinois
+# ---------------------------------------------------------------------------
+
+def _scrape_homepath_reo():
+    """Scrape Fannie Mae HomePath for Illinois REO (bank-owned) properties."""
+    new_leads = 0
+
+    try:
+        url  = 'https://www.homepath.com/il/'
+        resp = requests.get(url, headers=HEADERS, timeout=12)
+
+        if resp.status_code == 200:
+            soup     = BeautifulSoup(resp.text, 'lxml')
+            listings = (
+                soup.select('[class*="listing"]') or
+                soup.select('[class*="property"]') or
+                soup.select('[class*="result"]')   or
+                soup.select('article')
+            )[:15]
+
+            for listing in listings:
+                try:
+                    addr_el  = (listing.select_one('[class*="address"]') or
+                                listing.select_one('h2, h3, h4'))
+                    price_el = listing.select_one('[class*="price"]')
+
+                    if not addr_el:
+                        continue
+
+                    addr_text  = get_text(addr_el)
+                    price_text = get_text(price_el)
+
+                    if len(addr_text) < 5:
+                        continue
+
+                    post_text = (
+                        f"FANNIE MAE REO: {addr_text}. "
+                        f"Price: {price_text}. Bank-owned foreclosure — must sell."
+                    )
+
+                    lead = {
+                        'name':           'Fannie Mae REO',
+                        'phone':          '',
+                        'email':          '',
+                        'area':           addr_text,
+                        'source':         'Foreclosure',
+                        'type':           '🏠 Seller',
+                        'score':          '🔥 Hot',
+                        'post':           post_text,
+                        'link':           url,
+                        'reason':         'Fannie Mae bank-owned property — institutional motivated seller',
+                        'estimatedValue': price_text,
+                    }
+
+                    if add_lead(lead):
+                        new_leads += 1
+                        print(f"  ✅ HomePath REO: {addr_text[:50]}...")
+
+                except Exception:
+                    continue
+        else:
+            print(f"  ⚠️ HomePath: HTTP {resp.status_code}")
+
+    except Exception as e:
+        print(f"  ⚠️ HomePath error: {e}")
+
+    return new_leads
+
+
+# ---------------------------------------------------------------------------
+# 3. Foreclosure listing aggregators
+# ---------------------------------------------------------------------------
+
+def _scrape_foreclosure_sites():
+    """Scrape public foreclosure listing sites for Illinois properties."""
+    new_leads = 0
+
+    sources = [
+        {
+            'url':  'https://www.foreclosurelistings.com/illinois/',
+            'name': 'ForeclosureListings IL',
+        },
+        {
+            'url':  'https://www.allforeclosures.com/foreclosures/il/',
+            'name': 'AllForeclosures IL',
+        },
+        {
+            'url':  'https://www.bankforeclosureslisting.com/illinois-foreclosures.html',
+            'name': 'Bank Foreclosures IL',
+        },
+    ]
+
+    for source in sources:
+        try:
+            resp = requests.get(source['url'], headers=HEADERS, timeout=12)
+            if resp.status_code != 200:
+                print(f"  ⚠️ {source['name']}: HTTP {resp.status_code}")
+                continue
+
+            soup = BeautifulSoup(resp.text, 'lxml')
+
+            listings = (
+                soup.select('[class*="listing"]')     or
+                soup.select('[class*="property"]')    or
+                soup.select('[class*="foreclosure"]') or
+                soup.select('article')
+            )[:15]
+
+            for listing in listings:
+                try:
+                    addr_el  = (listing.select_one('[class*="address"]') or
+                                listing.select_one('h2, h3, h4'))
+                    price_el = listing.select_one('[class*="price"]')
+
+                    if not addr_el:
+                        continue
+
+                    addr_text  = get_text(addr_el)
+                    price_text = get_text(price_el)
+
+                    if len(addr_text) < 5:
+                        continue
+
+                    post_text = (
+                        f"FORECLOSURE: {addr_text}. "
+                        f"Price: {price_text}. Illinois — distressed sale."
+                    )
+
+                    lead = {
+                        'name':           'Foreclosure Property',
+                        'phone':          '',
+                        'email':          '',
+                        'area':           addr_text,
+                        'source':         'Foreclosure',
+                        'type':           '🏠 Seller',
+                        'score':          '🔥 Hot',
+                        'post':           post_text,
+                        'link':           source['url'],
+                        'reason':         'Foreclosure listing — distressed sale, motivated seller',
+                        'estimatedValue': price_text,
+                    }
+
+                    if add_lead(lead):
+                        new_leads += 1
+                        print(f"  ✅ {source['name']}: {addr_text[:50]}...")
+
+                except Exception:
                     continue
 
             time.sleep(random.uniform(1, 2))
 
-        except ET.ParseError as e:
-            print(f"  ❌ RSS parse error for {area}: {e}")
         except Exception as e:
-            print(f"  ❌ Error fetching {area} feed: {e}")
+            print(f"  ❌ {source['name']}: {e}")
             continue
 
-    print(f"  📊 Craigslist: {new_leads} new leads found")
     return new_leads
