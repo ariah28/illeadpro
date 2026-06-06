@@ -50,7 +50,7 @@ def scrape_fsbo():
 
     for city in IL_CITIES[:5]:
         try:
-            url  = f"https://www.forsalebyowner.com/real-estate/{city}/"
+            url  = f"https://www.forsalebyowner.com/homes-for-sale/{city}/"
             resp = requests.get(url, headers=HEADERS, timeout=12)
 
             if resp.status_code != 200:
@@ -154,8 +154,9 @@ def scrape_foreclosures():
 
     try:
         url    = "https://www.hudhomestore.gov/Listing/PropertySearchResult.aspx"
-        params = {'sState': 'IL', 'sCity': '', 'sZip': '', 'iPage': 1}
-        resp   = requests.get(url, headers=HEADERS, params=params, timeout=12)
+        params = {'sState': 'IL', 'sCity': '', 'sZipCode': '', 'iPage': 1,
+                  'sPageSize': 20, 'sPriceRangeLow': '', 'sPriceRangeHigh': ''}
+        resp   = requests.get(url, headers=HEADERS, params=params, timeout=15)
 
         if resp.status_code != 200:
             print(f"  ⚠️ HUD site returned HTTP {resp.status_code}")
