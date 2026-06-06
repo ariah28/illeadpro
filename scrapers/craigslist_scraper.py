@@ -73,6 +73,9 @@ def _scrape_cook_county_api():
                   'site_location', 'location', 'street', 'full_address']
     price_keys = ['sale_price', 'price', 'assessed_value', 'consideration',
                   'amount', 'market_value', 'estimated_market_value']
+    # Owner/seller name keys — Recorder of Deeds has grantor (seller) & grantee (buyer)
+    name_keys  = ['grantor', 'seller', 'seller_name', 'owner_name', 'taxpayer_name',
+                  'party_1', 'grantor_1', 'transferor', 'owner']
 
     for ds in datasets:
         try:
@@ -97,7 +100,6 @@ def _scrape_cook_county_api():
                     # Find address — check known keys first, then scan all fields
                     addr = next((str(rec[k]) for k in addr_keys if rec.get(k) and len(str(rec[k])) > 4), '')
                     if not addr:
-                        # Scan all string fields for something address-like
                         for k, v in rec.items():
                             if isinstance(v, str) and len(v) > 8:
                                 if any(t in k.lower() for t in ['addr', 'street', 'prop', 'loc']):
@@ -110,18 +112,25 @@ def _scrape_cook_county_api():
                     price = next((str(rec[k]) for k in price_keys
                                   if rec.get(k) and str(rec[k]) not in ('0', '0.0', '')), '')
 
+                    # Extract owner/seller name if available
+                    owner_name = next((str(rec[k]).title() for k in name_keys
+                                       if rec.get(k) and len(str(rec[k])) > 2), '')
+
+                    # Use owner name if found, otherwise generic label
+                    lead_name = owner_name if owner_name else 'Cook County Property'
+
                     area      = 'Cook County, IL'
                     post_text = (
                         f"COOK COUNTY PROPERTY RECORD: {addr}. "
+                        f"{'Owner: ' + owner_name + '. ' if owner_name else ''}"
                         f"Price/Value: {price}. Cook County, IL."
                     )
 
-                    # Skip AI scoring for public records — they're always real estate
                     lead = {
-                        'name':           'Cook County Property',
+                        'name':           lead_name,
                         'phone':          '',
                         'email':          '',
-                        'area':           area,
+                        'area':           f"{addr}, Cook County, IL",
                         'source':         'Public Records',
                         'type':           '🏠 Seller',
                         'score':          '⚡ Warm',
@@ -133,7 +142,8 @@ def _scrape_cook_county_api():
 
                     if add_lead(lead):
                         new_leads += 1
-                        print(f"  ✅ Cook County API: {addr[:50]}...")
+                        label = f"{owner_name} @ " if owner_name else ''
+                        print(f"  ✅ Cook County API: {label}{addr[:50]}...")
 
                     time.sleep(random.uniform(0.1, 0.3))
 
@@ -143,6 +153,107 @@ def _scrape_cook_county_api():
         except Exception as e:
             print(f"  ❌ {ds['name']}: {e}")
             continue
+
+    # Also try DuPage County open data (same Socrata platform)
+    new_leads += _scrape_dupage_county_api()
+    return new_leads
+
+
+def _scrape_dupage_county_api():
+    """Pull property data from DuPage County's open data portal."""
+    new_leads = 0
+
+    datasets = [
+        {
+            'url':  'https://data.countyofdupageil.gov/resource/property-sales.json',
+            'name': 'DuPage Property Sales',
+        },
+        {
+            'url':  'https://datacatalog.cookcountyil.gov/resource/tx2p-k2g9.json',
+            'name': 'Cook County Delinquent Taxes',
+        },
+    ]
+
+    addr_keys  = ['addr', 'address', 'property_address', 'prop_address',
+                  'site_location', 'location', 'street', 'situs_address']
+    price_keys = ['sale_price', 'price', 'assessed_value', 'tax_amount',
+                  'consideration', 'amount', 'market_value']
+    name_keys  = ['grantor', 'owner', 'owner_name', 'taxpayer', 'taxpayer_name',
+                  'seller', 'party_1']
+
+    for ds in datasets:
+        try:
+            resp = requests.get(
+                ds['url'],
+                headers=HEADERS,
+                params={'$limit': 25, '$order': ':id DESC'},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                continue  # Skip silently if this county doesn't have the dataset
+
+            records = resp.json()
+            if not isinstance(records, list) or not records:
+                continue
+
+            print(f"  📡 {ds['name']}: {len(records)} records")
+
+            for rec in records[:15]:
+                try:
+                    addr = next((str(rec[k]) for k in addr_keys if rec.get(k) and len(str(rec[k])) > 4), '')
+                    if not addr:
+                        for k, v in rec.items():
+                            if isinstance(v, str) and len(v) > 8:
+                                if any(t in k.lower() for t in ['addr', 'street', 'prop', 'loc', 'situs']):
+                                    addr = v
+                                    break
+
+                    if not addr or len(addr) < 5:
+                        continue
+                    if addr.startswith('$') or addr.replace(',', '').replace('.', '').strip().isdigit():
+                        continue
+
+                    price      = next((str(rec[k]) for k in price_keys
+                                       if rec.get(k) and str(rec[k]) not in ('0', '0.0', '')), '')
+                    owner_name = next((str(rec[k]).title() for k in name_keys
+                                       if rec.get(k) and len(str(rec[k])) > 2), '')
+                    lead_name  = owner_name if owner_name else 'IL Property Owner'
+
+                    post_text = (
+                        f"IL COUNTY PROPERTY RECORD: {addr}. "
+                        f"{'Owner: ' + owner_name + '. ' if owner_name else ''}"
+                        f"Value: {price}."
+                    )
+
+                    lead = {
+                        'name':           lead_name,
+                        'phone':          '',
+                        'email':          '',
+                        'area':           f"{addr}, Illinois",
+                        'source':         'Public Records',
+                        'type':           '🏠 Seller',
+                        'score':          '⚡ Warm',
+                        'post':           post_text,
+                        'link':           ds['url'],
+                        'reason':         'IL county public property record — potential motivated seller',
+                        'estimatedValue': price,
+                    }
+
+                    if add_lead(lead):
+                        new_leads += 1
+                        label = f"{owner_name} @ " if owner_name else ''
+                        print(f"  ✅ {ds['name']}: {label}{addr[:40]}...")
+
+                    time.sleep(random.uniform(0.1, 0.3))
+
+                except Exception:
+                    continue
+
+        except Exception as e:
+            print(f"  ❌ {ds['name']}: {e}")
+            continue
+
+    return new_leads
 
     return new_leads
 
