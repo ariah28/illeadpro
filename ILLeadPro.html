@@ -40,29 +40,35 @@
   .s-money .stat-value{color:var(--accent);}
   .s-pending .stat-value{color:var(--warm);}
   .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;}
-  .toolbar-left{display:flex;gap:8px;align-items:center;}
+  .toolbar-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .filter-btn{font-size:12px;font-weight:500;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .2s;}
   .filter-btn.active,.filter-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.08);}
   .filter-btn.fhot.active{border-color:var(--hot);color:var(--hot);background:rgba(255,77,109,.08);}
   .filter-btn.fwarm.active{border-color:var(--warm);color:var(--warm);background:rgba(255,179,71,.08);}
   .filter-btn.fcold.active{border-color:var(--cold);color:var(--cold);background:rgba(77,195,255,.08);}
+  .filter-btn.fcontact.active{border-color:#00e5a0;color:#00e5a0;background:rgba(0,229,160,.12);}
   .add-btn{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);cursor:pointer;transition:all .2s;}
   .add-btn:hover{opacity:.9;transform:translateY(-1px);}
   .leads-table{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-  .table-header{display:grid;grid-template-columns:50px 170px 130px 90px 90px 95px 120px 140px 100px 100px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .table-header{display:grid;grid-template-columns:50px 170px 160px 90px 90px 95px 120px 140px 100px 100px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
   .th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
-  .lead-row{display:grid;grid-template-columns:50px 170px 130px 90px 90px 95px 120px 140px 100px 100px;padding:13px 16px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;cursor:pointer;}
+  .lead-row{display:grid;grid-template-columns:50px 170px 160px 90px 90px 95px 120px 140px 100px 100px;padding:13px 16px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;cursor:pointer;}
   .lead-row:last-child{border-bottom:none;}
   .lead-row:hover{background:var(--surface2);}
   .lead-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
   .lead-name{font-size:13px;font-weight:500;}
   .lead-contact{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+  .lead-contact.has-phone{color:var(--accent);font-weight:500;}
   .badge{font-size:10px;font-weight:500;padding:3px 8px;border-radius:4px;display:inline-block;}
   .src-craigslist{background:rgba(255,77,109,.15);color:#ff4d6d;}
   .src-reddit{background:rgba(255,179,71,.15);color:#ffb347;}
   .src-zillow{background:rgba(0,229,160,.15);color:#00e5a0;}
   .src-twitter{background:rgba(77,195,255,.15);color:#4dc3ff;}
   .src-facebook{background:rgba(123,111,255,.15);color:#7b6fff;}
+  .src-fsbo{background:rgba(0,229,160,.15);color:#00e5a0;}
+  .src-foreclosure{background:rgba(255,77,109,.15);color:#ff4d6d;}
+  .src-public{background:rgba(107,107,138,.15);color:#6b6b8a;}
+  .src-biggerpockets{background:rgba(123,111,255,.15);color:#7b6fff;}
   .src-other{background:rgba(107,107,138,.15);color:#6b6b8a;}
   .score-hot{color:var(--hot);font-weight:600;}
   .score-warm{color:var(--warm);font-weight:600;}
@@ -174,6 +180,7 @@
         <button class="filter-btn fhot" onclick="setFilter('hot',this)">🔥 Hot</button>
         <button class="filter-btn fwarm" onclick="setFilter('warm',this)">⚡ Warm</button>
         <button class="filter-btn fcold" onclick="setFilter('cold',this)">❄️ Cold</button>
+        <button class="filter-btn fcontact" id="btn-contact" onclick="toggleContactFilter(this)">📞 Has Contact</button>
       </div>
       <button class="add-btn" onclick="openAdd()">+ Add Lead</button>
     </div>
@@ -228,8 +235,9 @@
         <div class="form-group"><label class="form-label">Area / City</label><input class="form-input" id="a-area" placeholder="Elmhurst, DuPage County..."/></div>
         <div class="form-group"><label class="form-label">Source</label>
           <select class="form-select" id="a-source">
-            <option>Craigslist</option><option>Reddit</option><option>Zillow</option>
-            <option>Twitter</option><option>Facebook</option><option>Other</option>
+            <option>FSBO</option><option>Foreclosure</option><option>Public Records</option>
+            <option>BiggerPockets</option><option>Craigslist</option><option>Reddit</option>
+            <option>Zillow</option><option>Facebook</option><option>Other</option>
           </select>
         </div>
         <div class="form-group"><label class="form-label">Type</label>
@@ -291,12 +299,8 @@
 </div>
 
 <script>
-let leads=[
-  {id:1,name:"Sarah Kowalski",phone:"312-555-0192",email:"sarah.k@gmail.com",area:"Chicago, IL",source:"Reddit",type:"🔍 Buyer",score:"🔥 Hot",post:"Looking to buy my first home in Chicago area, budget around $320k. Anyone recommend a good neighborhood for young families?",dateFound:"2026-05-19 08:42",forwarded:"✅ Yes",partner:"Mike Johnson - RE/MAX",method:"Email",status:"🔄 In Progress",dateClosed:"",dealValue:"",agentPct:"",yourPct:"",payRcvd:"❌ Pending",payDate:"",payMethod:"",notes:"Very motivated, pre-approved for $350k"},
-  {id:2,name:"Tom Reyes",phone:"630-555-0847",email:"tomreyes@yahoo.com",area:"Elmhurst, IL",source:"Craigslist",type:"🏠 Seller",score:"🔥 Hot",post:"Selling my 3BR 2BA house in Elmhurst, need to sell fast, relocating for work. Price negotiable.",dateFound:"2026-05-20 10:15",forwarded:"❌ Not Yet",partner:"",method:"Email",status:"new",dateClosed:"",dealValue:"",agentPct:"",yourPct:"",payRcvd:"❌ Pending",payDate:"",payMethod:"",notes:""},
-  {id:3,name:"Linda Park",phone:"847-555-0334",email:"lpark@hotmail.com",area:"Evanston, IL",source:"Facebook",type:"🏠 Seller",score:"⚡ Warm",post:"Anyone know a good real estate agent in Evanston? Thinking of selling our condo next year.",dateFound:"2026-05-18 14:30",forwarded:"✅ Yes",partner:"Anna Smith - Coldwell Banker",method:"WhatsApp",status:"✅ Closed",dateClosed:"2026-05-20",dealValue:"285000",agentPct:"3",yourPct:"20",payRcvd:"✅ Yes",payDate:"2026-05-21",payMethod:"Zelle",notes:"Quick close, smooth deal"}
-];
-let currentId=null,filterMode='all';
+let leads=[];
+let currentId=null,filterMode='all',filterContact=false;
 
 function fmt(n){if(!n&&n!==0)return'—';return'$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function calcFee(l){if(!l.dealValue||!l.agentPct||!l.yourPct)return null;return parseFloat(l.dealValue)*(parseFloat(l.agentPct)/100)*(parseFloat(l.yourPct)/100);}
@@ -304,17 +308,33 @@ function pick(btn,gid){document.querySelectorAll('#'+gid+' .copt').forEach(b=>{b
 function getSel(gid){const b=document.querySelector('#'+gid+' .copt.sel');return b?b.textContent.trim():'';}
 
 function scoreClass(s){if(s.includes('Hot'))return'score-hot';if(s.includes('Warm'))return'score-warm';return'score-cold';}
-function srcClass(s){return'src-'+s.toLowerCase().replace('/x','').replace('twitter','twitter');}
+function srcClass(s){
+  const sl=s.toLowerCase();
+  if(sl.includes('fsbo'))return'src-fsbo';
+  if(sl.includes('foreclosure'))return'src-foreclosure';
+  if(sl.includes('public')||sl.includes('record'))return'src-public';
+  if(sl.includes('bigger')||sl.includes('bp'))return'src-biggerpockets';
+  if(sl.includes('craigslist'))return'src-craigslist';
+  if(sl.includes('reddit'))return'src-reddit';
+  if(sl.includes('zillow'))return'src-zillow';
+  if(sl.includes('twitter')||sl.includes('x/'))return'src-twitter';
+  if(sl.includes('facebook'))return'src-facebook';
+  return'src-other';
+}
 function typeClass(t){if(t.includes('Seller'))return'type-seller';if(t.includes('Buyer'))return'type-buyer';return'type-investor';}
 function stClass(s){if(s==='🔄 In Progress')return'st-progress';if(s==='✅ Closed')return'st-closed';if(s==='❌ Lost')return'st-lost';return'st-new';}
 function stLabel(s){if(s==='🔄 In Progress')return'🔄 Progress';if(s==='✅ Closed')return'✅ Closed';if(s==='❌ Lost')return'❌ Lost';return'⬜ New';}
 
 function row(l){
   const fee=calcFee(l);
+  const hasPhone=l.phone&&l.phone.trim()!=='';
+  const contactHtml=hasPhone
+    ?`<div class="lead-contact has-phone">📞 ${l.phone}</div>`
+    :(l.email?`<div class="lead-contact">${l.email}</div>`:`<div class="lead-contact" style="color:var(--muted);font-size:10px;">no contact</div>`);
   return `<div class="lead-row" onclick="openDetail(${l.id})">
     <div class="lead-id">#${String(l.id).padStart(3,'0')}</div>
     <div class="lead-name">${l.name}</div>
-    <div class="lead-contact">${l.phone||l.email||'—'}</div>
+    ${contactHtml}
     <div><span class="badge ${srcClass(l.source)}">${l.source}</span></div>
     <div class="${scoreClass(l.score)}" style="font-size:12px;">${l.score}</div>
     <div><span class="badge ${typeClass(l.type)}">${l.type}</span></div>
@@ -326,14 +346,15 @@ function row(l){
 }
 
 function render(){
-  const filtered=filterMode==='all'?leads:leads.filter(l=>{
+  let filtered=filterMode==='all'?[...leads]:leads.filter(l=>{
     if(filterMode==='hot')return l.score.includes('Hot');
     if(filterMode==='warm')return l.score.includes('Warm');
     if(filterMode==='cold')return l.score.includes('Cold');
     return true;
   });
+  if(filterContact) filtered=filtered.filter(l=>l.phone&&l.phone.trim()!=='');
   const el=id=>document.getElementById(id);
-  el('rows-dashboard').innerHTML=[...leads].reverse().slice(0,5).map(row).join('')||'<div class="no-rows">No leads yet. Click + Add Lead to start!</div>';
+  el('rows-dashboard').innerHTML=[...leads].reverse().slice(0,5).map(row).join('')||'<div class="no-rows">No leads yet. Scraper is running — check back soon!</div>';
   el('rows-leads').innerHTML=filtered.map(row).join('')||'<div class="no-rows">No leads match this filter.</div>';
   el('rows-forwarded').innerHTML=leads.filter(l=>l.forwarded==='✅ Yes').map(row).join('')||'<div class="no-rows">No forwarded leads yet.</div>';
   el('rows-deals').innerHTML=leads.filter(l=>l.status!=='new').map(row).join('')||'<div class="no-rows">No deals tracked yet.</div>';
@@ -341,6 +362,7 @@ function render(){
 }
 
 function stats(){
+  const withPhone=leads.filter(l=>l.phone&&l.phone.trim()!=='').length;
   document.getElementById('st-total').textContent=leads.length;
   document.getElementById('st-hot').textContent=leads.filter(l=>l.score.includes('Hot')).length;
   document.getElementById('st-fwd').textContent=leads.filter(l=>l.forwarded==='✅ Yes').length;
@@ -349,6 +371,9 @@ function stats(){
   leads.forEach(l=>{const f=calcFee(l);if(f!==null){if(l.payRcvd==='✅ Yes')earned+=f;else if(l.status==='✅ Closed')pending+=f;}});
   document.getElementById('st-earned').textContent=fmt(earned);
   document.getElementById('st-pending').textContent=fmt(pending);
+  // Update contact badge in tab nav
+  const btn=document.getElementById('btn-contact');
+  if(btn) btn.textContent='📞 Has Contact'+(withPhone>0?' ('+withPhone+')':'');
 }
 
 function switchTab(t){
@@ -361,8 +386,14 @@ function switchTab(t){
 
 function setFilter(mode,btn){
   filterMode=mode;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn:not(.fcontact)').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  render();
+}
+
+function toggleContactFilter(btn){
+  filterContact=!filterContact;
+  btn.classList.toggle('active',filterContact);
   render();
 }
 
@@ -402,14 +433,15 @@ function openDetail(id){
     <div class="sec-title">👤 Lead Info (Auto-Captured)</div>
     <div class="detail-grid">
       <div class="ditem"><div class="ditem-label">Name</div><div class="ditem-value">${l.name}</div></div>
-      <div class="ditem"><div class="ditem-label">Phone</div><div class="ditem-value">${l.phone||'—'}</div></div>
+      <div class="ditem"><div class="ditem-label">Phone</div><div class="ditem-value" style="${l.phone?'color:var(--accent);font-weight:600;':''}">${l.phone?'📞 '+l.phone:'—'}</div></div>
       <div class="ditem"><div class="ditem-label">Email</div><div class="ditem-value">${l.email||'—'}</div></div>
       <div class="ditem"><div class="ditem-label">Area</div><div class="ditem-value">${l.area||'—'}</div></div>
       <div class="ditem"><div class="ditem-label">Source</div><div class="ditem-value">${l.source}</div></div>
-      <div class="ditem"><div class="ditem-label">Date Found</div><div class="ditem-value">${l.dateFound}</div></div>
+      <div class="ditem"><div class="ditem-label">Date Found</div><div class="ditem-value">${l.dateFound||'—'}</div></div>
       <div class="ditem"><div class="ditem-label">Type</div><div class="ditem-value">${l.type}</div></div>
       <div class="ditem"><div class="ditem-label">Score</div><div class="ditem-value ${scoreClass(l.score)}">${l.score}</div></div>
     </div>
+    ${l.reason?`<div class="sec-title">🎯 Why This Lead</div><div class="post-box" style="font-style:normal;color:var(--accent)">${l.reason}</div>`:''}
     <div class="sec-title">💬 Original Post</div>
     <div class="post-box">"${l.post||'No post recorded'}"</div>
     <div class="sec-title">📤 Forward to Partner</div>
