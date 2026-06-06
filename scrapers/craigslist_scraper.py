@@ -227,16 +227,16 @@ def _scrape_foreclosure_sites():
 
     sources = [
         {
-            'url':  'https://www.foreclosurelistings.com/illinois/',
-            'name': 'ForeclosureListings IL',
-        },
-        {
             'url':  'https://www.allforeclosures.com/foreclosures/il/',
             'name': 'AllForeclosures IL',
         },
         {
-            'url':  'https://www.bankforeclosureslisting.com/illinois-foreclosures.html',
-            'name': 'Bank Foreclosures IL',
+            'url':  'https://www.foreclosure.com/listing/list.html?state=IL',
+            'name': 'Foreclosure.com IL',
+        },
+        {
+            'url':  'https://www.realtytrac.com/mapsearch/#?s=illinois&t=foreclosure',
+            'name': 'RealtyTrac IL Foreclosures',
         },
     ]
 
