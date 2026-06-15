@@ -117,12 +117,11 @@ def extract_jsonld(soup):
 
 def scrape_fsbo():
     """Scrape multiple FSBO sites for Illinois listings with contact info."""
-    print("🔍 Scraping FSBO sites (fizber, fsbo.com, byowner, realtor)...")
+    print("🔍 Scraping FSBO sites (fizber, fsbo.com, byowner)...")
     new_leads = 0
     new_leads += _scrape_fizber()
     new_leads += _scrape_fsbo_com()
     new_leads += _scrape_byowner()
-    new_leads += _scrape_realtor_fsbo()
     print(f"  📊 FSBO: {new_leads} new leads found")
     return new_leads
 
@@ -432,112 +431,6 @@ def _scrape_byowner():
         except Exception as e:
             print(f"  ❌ ByOwner error: {e}")
             continue
-
-    return new_leads
-
-
-def _scrape_realtor_fsbo():
-    """Realtor.com FSBO — with rate-limit protection (30s+ delays)."""
-    new_leads = 0
-    urls = [
-        ('https://www.realtor.com/realestateandhomes-search/Illinois/type-single-family-home/sby-fsbo', 'Illinois'),
-        ('https://www.realtor.com/realestateandhomes-search/Chicago_IL/type-single-family-home/sby-fsbo', 'Chicago IL'),
-    ]
-
-    for url, area in urls:
-        try:
-            # Long delay to avoid 429 rate limit
-            time.sleep(random.uniform(30, 45))
-
-            resp = requests.get(url, headers=rand_headers(), timeout=20)
-            if resp.status_code == 429:
-                print(f"  ⚠️ Realtor FSBO {area}: rate limited (429) — skipping")
-                time.sleep(60)
-                continue
-            if resp.status_code != 200:
-                print(f"  ⚠️ Realtor FSBO {area}: HTTP {resp.status_code}")
-                continue
-
-            soup = BeautifulSoup(resp.text, 'lxml')
-
-            # JSON-LD first
-            jsonld_items = extract_jsonld(soup)
-            for item in jsonld_items[:12]:
-                try:
-                    addr_text  = item['addr']
-                    price_text = item['price']
-                    phone_text = item['phone']
-                    if len(addr_text) < 5:
-                        continue
-                    lead = {
-                        'name':           'FSBO Seller',
-                        'phone':          phone_text,
-                        'email':          '',
-                        'area':           area,
-                        'source':         'FSBO',
-                        'type':           '🏠 Seller',
-                        'score':          '🔥 Hot',
-                        'post':           f"REALTOR.COM FSBO: {addr_text}. Price: {price_text}. {area}. For sale by owner.",
-                        'link':           url,
-                        'reason':         'FSBO on Realtor.com — selling without agent',
-                        'estimatedValue': price_text,
-                    }
-                    if add_lead(lead):
-                        new_leads += 1
-                        print(f"  ✅ Realtor FSBO (JSON-LD): {addr_text[:50]}...")
-                except Exception:
-                    continue
-
-            # HTML fallback
-            if not jsonld_items:
-                listings = (
-                    soup.select('[data-testid*="property"]') or
-                    soup.select('[class*="PropertyCard"]')   or
-                    soup.select('[class*="listing"]')        or
-                    soup.select('[class*="property"]')       or
-                    soup.select('article')
-                )[:12]
-
-                for listing in listings:
-                    try:
-                        addr_el  = (listing.select_one('[data-testid*="address"]') or
-                                    listing.select_one('[class*="address"]')        or
-                                    listing.select_one('h2, h3, h4'))
-                        price_el = (listing.select_one('[data-testid*="price"]') or
-                                    listing.select_one('[class*="price"]'))
-                        phone_el = listing.select_one('[href^="tel"]')
-
-                        addr_text  = get_text(addr_el)
-                        price_text = get_text(price_el)
-                        phone_text = (phone_el['href'].replace('tel:', '')
-                                      if phone_el and phone_el.get('href')
-                                      else find_phone(listing))
-
-                        if len(addr_text) < 5:
-                            continue
-
-                        lead = {
-                            'name':           'FSBO Seller',
-                            'phone':          phone_text,
-                            'email':          '',
-                            'area':           area,
-                            'source':         'FSBO',
-                            'type':           '🏠 Seller',
-                            'score':          '🔥 Hot',
-                            'post':           f"REALTOR.COM FSBO: {addr_text}. Price: {price_text}. {area}. For sale by owner.",
-                            'link':           url,
-                            'reason':         'FSBO on Realtor.com — selling without agent',
-                            'estimatedValue': price_text,
-                        }
-                        if add_lead(lead):
-                            new_leads += 1
-                            print(f"  ✅ Realtor FSBO: {addr_text[:50]}...")
-                        time.sleep(random.uniform(2, 4))
-                    except Exception:
-                        continue
-
-        except Exception as e:
-            print(f"  ❌ Realtor FSBO error: {e}")
 
     return new_leads
 
