@@ -130,11 +130,21 @@ def _scrape_cook_county_api():
                     # Use owner name if found, otherwise generic label
                     lead_name = owner_name if owner_name else 'Cook County Property'
 
-                    area      = 'Cook County, IL'
+                    # Accurate source/score/reason based on which dataset this came from
+                    is_delinquent = 'Delinquent' in ds['name']
+                    lead_source   = 'Delinquent Taxes' if is_delinquent else 'Property Sale'
+                    lead_score    = '🔥 Hot' if is_delinquent else '⚡ Warm'
+                    lead_reason   = (
+                        'Owner has unpaid Cook County property taxes — financially distressed, motivated to sell'
+                        if is_delinquent else
+                        'Recent Cook County property transaction — may be open to another deal'
+                    )
+                    post_label    = 'DELINQUENT TAX PROPERTY' if is_delinquent else 'COOK COUNTY PROPERTY SALE'
+
                     post_text = (
-                        f"COOK COUNTY PROPERTY RECORD: {addr}. "
+                        f"{post_label}: {addr}. "
                         f"{'Owner: ' + owner_name + '. ' if owner_name else ''}"
-                        f"Price/Value: {price}. Cook County, IL."
+                        f"{'Tax Amount: ' if is_delinquent else 'Sale Price: '}{price}. Cook County, IL."
                     )
 
                     lead = {
@@ -142,12 +152,12 @@ def _scrape_cook_county_api():
                         'phone':          '',
                         'email':          '',
                         'area':           f"{addr}, Cook County, IL",
-                        'source':         'Public Records',
+                        'source':         lead_source,
                         'type':           '🏠 Seller',
-                        'score':          '⚡ Warm',
+                        'score':          lead_score,
                         'post':           post_text,
                         'link':           ds['url'],
-                        'reason':         'Cook County public property record — potential motivated seller',
+                        'reason':         lead_reason,
                         'estimatedValue': price,
                     }
 
